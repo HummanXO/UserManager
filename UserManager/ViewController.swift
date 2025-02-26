@@ -19,6 +19,7 @@ class ViewController: UIViewController, UITableViewDelegate, UITableViewDataSour
 
     override func viewDidLoad() {
         super.viewDidLoad()
+        view.backgroundColor = .black
         setupTableView()
         fetchUsers()
         setupNavigationBar()
@@ -32,7 +33,23 @@ class ViewController: UIViewController, UITableViewDelegate, UITableViewDataSour
     }
     
     @objc private func addUser() {
-        
+        let alertController = UIAlertController(title: "Add User", message: nil, preferredStyle: .alert)
+        alertController.addTextField { textField in
+            textField.placeholder = "Enter user name"
+        }
+        alertController.addTextField { textField in
+            textField.placeholder = "Enter user email"
+        }
+        let actionAdd = UIAlertAction(title: "Add", style: .default) { [weak self] _ in
+            guard let self = self,
+                  let firstName = alertController.textFields?.first?.text,
+                  let email = alertController.textFields?.last?.text else { return }
+            self.createUser(firstName: firstName, email: email)
+        }
+        let actionCancel = UIAlertAction(title: "Cancel", style: .cancel)
+        alertController.addAction(actionAdd)
+        alertController.addAction(actionCancel)
+        present(alertController, animated: true)
     }
     
     private func setupTableView() {
@@ -58,8 +75,33 @@ class ViewController: UIViewController, UITableViewDelegate, UITableViewDataSour
         }
     }
     
+    private func createUser(firstName: String, email: String) {
+        networkManager.createUser(first_name: firstName, email: email) { [weak self] result in
+            guard let self = self, let res = result else { return }
+            
+            self.users.append(res)
+            DispatchQueue.main.async {
+                self.tableView.reloadData()
+            }
+        }
+    }
+    
+    
     func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
         return users.count
+    }
+    
+    func tableView(_ tableView: UITableView, commit editingStyle: UITableViewCell.EditingStyle, forRowAt indexPath: IndexPath) {
+        if editingStyle == .delete {
+            let userToDelete = users[indexPath.row]
+            networkManager.deleteUser(user: userToDelete) { [weak self] _ in
+                guard let self = self else { return }
+                self.users.remove(at: indexPath.row)
+                DispatchQueue.main.async {
+                    tableView.deleteRows(at: [indexPath], with: .fade)
+                }
+            }
+        }
     }
     
     func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
@@ -70,4 +112,3 @@ class ViewController: UIViewController, UITableViewDelegate, UITableViewDataSour
     }
 
 }
-
